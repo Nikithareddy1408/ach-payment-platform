@@ -5,7 +5,7 @@ services:
   postgres:
     image: postgres:16-alpine
     environment: { POSTGRES_USER: ach, POSTGRES_PASSWORD: ach, POSTGRES_DB: ach }
-    ports: ["5432:5432"]
+    ports: ["5433:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U ach"], interval: 2s, timeout: 3s, retries: 30 }
 
