@@ -1,0 +1,48 @@
+# Full local environment:  docker compose up --build
+#   API + interactive docs:  http://localhost:8000/docs
+# Each role runs as its own container, exactly as it would in production.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: ach, POSTGRES_PASSWORD: ach, POSTGRES_DB: ach }
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U ach"], interval: 2s, timeout: 3s, retries: 30 }
+
+  migrate:
+    build: .
+    command: ["migrate"]
+    environment: &env
+      DATABASE_URL: postgresql://ach:ach@postgres:5432/ach
+      BANK_BASE_URL: http://mock-bank:4000
+      WEBHOOK_BLOCK_PRIVATE_IPS: "false"
+    depends_on: { postgres: { condition: service_healthy } }
+
+  api:
+    build: .
+    command: ["api"]
+    environment: *env
+    ports: ["8000:8000"]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+
+  worker:
+    build: .
+    command: ["worker"]
+    environment: *env
+    deploy: { replicas: 2 }   # scale out: docker compose up --scale worker=4
+    depends_on: { migrate: { condition: service_completed_successfully } }
+
+  dispatcher:
+    build: .
+    command: ["dispatcher"]
+    environment: *env
+    depends_on: { migrate: { condition: service_completed_successfully } }
+
+  mock-bank:
+    build: .
+    command: ["mock-bank"]
+    environment: { MOCK_BANK_PORT: "4000", MOCK_BANK_FAILURE_RATE: "0.1" }
+    ports: ["4000:4000"]
+
+volumes:
+  pgdata:
