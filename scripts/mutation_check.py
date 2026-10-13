@@ -44,12 +44,15 @@ MUTATIONS = [
      "app/webhooks.py", "AND e.id < d.id AND e.state IN ('PENDING', 'DELIVERING'))", "AND false)",
      "tests/test_04_status_audit_webhooks.py tests/test_05_chaos.py"),
     ("Database no longer blocks illegal status transitions",
-     "migrations/001_init.sql", "IF NEW.status IS DISTINCT FROM OLD.status AND NOT (", "IF false AND NOT (",
+     "migrations/002_ach_returns.sql", "IF NEW.status IS DISTINCT FROM OLD.status AND NOT (", "IF false AND NOT (",
      "tests/test_03_lifecycle_and_resilience.py"),
     ("Customers can read each other's payments",
      "app/payments.py", '"SELECT * FROM payments WHERE id = %s AND customer_id = %s", (payment_id, customer_id)',
      '"SELECT * FROM payments WHERE id = %s AND %s IS NOT NULL", (payment_id, customer_id)',
      "tests/test_01_submission.py"),
+    ("ACH return code not recorded in the audit trail",
+     "app/payments.py", 'metadata={"returnCode": return_code})', "metadata={})",
+     "tests/test_06_returns.py"),
 ]
 
 # Optional: run a subset, e.g.  python scripts/mutation_check.py 1 2 3

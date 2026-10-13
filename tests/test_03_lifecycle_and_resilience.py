@@ -19,9 +19,10 @@ def statuses(h, payment_id):
 
 
 class TestLifecycle:
-    def test_exactly_5_legal_transitions_out_of_25_pairs(self):
+    def test_exactly_6_legal_transitions_out_of_36_pairs(self):
         legal = {("PENDING", "PROCESSING"), ("PROCESSING", "COMPLETED"), ("PROCESSING", "FAILED"),
-                 ("PROCESSING", "RETRYING"), ("RETRYING", "PROCESSING")}
+                 ("PROCESSING", "RETRYING"), ("RETRYING", "PROCESSING"), ("COMPLETED", "RETURNED")}
+        assert len(STATUSES) == 6
         for a in STATUSES:
             for b in STATUSES:
                 assert can_transition(a, b) == ((a, b) in legal), f"{a} -> {b}"

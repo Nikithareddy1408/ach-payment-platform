@@ -17,7 +17,7 @@ Base path `/v1`. JSON everywhere. Interactive documentation (try every endpoint 
 | 401 | `UNAUTHORIZED` | Missing, invalid, or revoked API key |
 | 403 | `CUSTOMER_MISMATCH` | `customerId` is not the authenticated customer |
 | 404 | `PAYMENT_NOT_FOUND`, ... | Unknown id, or belongs to another customer |
-| 409 | `DUPLICATE_REFERENCE`, `DELIVERY_NOT_RETRYABLE` | Reference already used (`details.existingPaymentId`) |
+| 409 | `DUPLICATE_REFERENCE`, `DELIVERY_NOT_RETRYABLE`, `PAYMENT_NOT_RETURNABLE` | Reference already used (`details.existingPaymentId`) |
 | 422 | `IDEMPOTENCY_KEY_REUSED` | Same key, different request body |
 | 429 | `RATE_LIMITED` | Too many requests for this key |
 
@@ -70,6 +70,14 @@ Returns the payment object above. `lastError` is `{ "code", "message" }` after a
     "actor": "worker:host:1234:ab12cd#0", "requestId": "req_...", "metadata": { "attempt": 1 }, "createdAt": "..." }
 ]}
 ```
+
+## `POST /v1/payments/{id}/returns`: record an ACH return
+
+```json
+{ "returnCode": "R01" }
+```
+
+`returnCode` is `R01` to `R99`. Marks a `COMPLETED` payment as `RETURNED` (the only transition out of `COMPLETED`) and returns `200` with the payment object. Any other status gives `409 PAYMENT_NOT_RETURNABLE`. The audit event has `"metadata": { "returnCode": "R01" }` and reason `ACH return R01`, and a `payment.returned` webhook is sent. `completedAt` keeps the original completion time.
 
 ## `GET /v1/payments`: list
 
