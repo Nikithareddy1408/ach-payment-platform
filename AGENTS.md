@@ -5,13 +5,19 @@ An ACH payment processing service: FastAPI API, PostgreSQL, background
 workers, sandbox bank. See README.md and docs/02-architecture.md.
 
 ## Setup
-1. Python 3.12+ and PostgreSQL must be running.
-2. As the postgres superuser, create the user and databases:
+1. Python 3.12+ is required. If the system Python is older, create a
+   virtual environment with Python 3.12 (for example with uv) in `.venv`.
+2. PostgreSQL must be running. As the postgres superuser, create the user
+   and databases:
    CREATE USER ach WITH PASSWORD 'ach' CREATEDB;
    CREATE DATABASE ach OWNER ach;
    CREATE DATABASE ach_test OWNER ach;
-3. pip install -r requirements.txt
-4. cp .env.example .env
+3. On PostgreSQL 14 or older only: the tests drop and recreate the `public`
+   schema, so `ach` must own it. As superuser, in BOTH databases, run:
+   ALTER SCHEMA public OWNER TO ach;
+   (Not needed on PostgreSQL 15+.)
+4. pip install -r requirements.txt
+5. cp .env.example .env
 
 ## Rules you must never break
 - Money is always integer cents (amount_cents). Never use floats for money.
