@@ -166,7 +166,8 @@
                     "PROCESSING",
                     "COMPLETED",
                     "FAILED",
-                    "RETRYING"
+                    "RETRYING",
+                    "RETURNED"
                   ],
                   "type": "string"
                 },
@@ -446,6 +447,124 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EventsOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        }
+      }
+    },
+    "/v1/payments/{payment_id}/returns": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Record an ACH return for a completed payment",
+        "description": "Marks a COMPLETED payment as RETURNED with an ACH return code (R01-R99). The code is recorded\nin the audit trail and a payment.returned webhook is sent. Any other status gives 409.",
+        "operationId": "return_payment_v1_payments__payment_id__returns_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Payment Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnPaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOut"
                 }
               }
             }
@@ -1209,7 +1328,8 @@
               "PROCESSING",
               "COMPLETED",
               "FAILED",
-              "RETRYING"
+              "RETRYING",
+              "RETURNED"
             ],
             "title": "Status"
           },
@@ -1305,6 +1425,27 @@
           "nextCursor"
         ],
         "title": "PaymentPage"
+      },
+      "ReturnPaymentRequest": {
+        "properties": {
+          "returnCode": {
+            "type": "string",
+            "pattern": "^R(0[1-9]|[1-9][0-9])$",
+            "title": "Returncode",
+            "description": "ACH return reason code, R01 to R99"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "returnCode"
+        ],
+        "title": "ReturnPaymentRequest",
+        "examples": [
+          {
+            "returnCode": "R01"
+          }
+        ]
       },
       "WebhookEndpointOut": {
         "properties": {

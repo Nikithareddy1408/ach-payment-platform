@@ -45,6 +45,11 @@ class CreatePaymentRequest(BaseModel):
         return value
 
 
+class ReturnPaymentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{"returnCode": "R01"}]})
+    returnCode: str = Field(pattern=r"^R(0[1-9]|[1-9][0-9])$", description="ACH return reason code, R01 to R99")
+
+
 class ErrorBody(BaseModel):
     code: str
     message: str
@@ -69,7 +74,7 @@ class PaymentOut(BaseModel):
     amountCents: int
     currency: str
     reference: str
-    status: Literal["PENDING", "PROCESSING", "COMPLETED", "FAILED", "RETRYING"]
+    status: Literal["PENDING", "PROCESSING", "COMPLETED", "FAILED", "RETRYING", "RETURNED"]
     attempts: int
     bankTransferId: str | None
     lastError: LastError | None
@@ -234,7 +239,7 @@ def create_api(platform) -> FastAPI:
 
     @v1.get("/payments", tags=["Payments"], summary="List payments (newest first)", response_model=PaymentPage)
     def list_payments(customer_id: str = Depends(current_customer),
-                      status: Literal["PENDING", "PROCESSING", "COMPLETED", "FAILED", "RETRYING"] | None = None,
+                      status: Literal["PENDING", "PROCESSING", "COMPLETED", "FAILED", "RETRYING", "RETURNED"] | None = None,
                       reference: str | None = Query(None, max_length=64),
                       limit: int = Query(20, ge=1, le=100), cursor: str | None = Query(None, max_length=200)):
         rows, next_cursor = platform.payments.list(customer_id, status=status, reference=reference, limit=limit, cursor=cursor)
@@ -254,6 +259,14 @@ def create_api(platform) -> FastAPI:
         if platform.payments.get(customer_id, payment_id) is None:
             raise not_found("PAYMENT", payment_id)
         return {"paymentId": payment_id, "events": [to_api_event(e) for e in platform.payments.events(payment_id)]}
+
+    @v1.post("/payments/{payment_id}/returns", tags=["Payments"], summary="Record an ACH return for a completed payment",
+             response_model=PaymentOut)
+    def return_payment(payment_id: str, body: ReturnPaymentRequest, request: Request, customer_id: str = Depends(current_customer)):
+        """Marks a COMPLETED payment as RETURNED with an ACH return code (R01-R99). The code is recorded
+        in the audit trail and a payment.returned webhook is sent. Any other status gives 409."""
+        payment = platform.payments.return_payment(customer_id, payment_id, body.returnCode, Actor("api", request.state.request_id))
+        return to_api_payment(payment)
 
     # ── Webhooks ──
     @v1.post("/webhook-endpoints", tags=["Webhooks"], summary="Register a webhook endpoint", status_code=201,

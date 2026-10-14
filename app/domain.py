@@ -6,20 +6,22 @@ from decimal import Decimal, InvalidOperation
 
 # ── Payment lifecycle (mirrored by the payments_guard trigger in the database) ──
 #
-#   PENDING ──► PROCESSING ──► COMPLETED
+#   PENDING ──► PROCESSING ──► COMPLETED ──► RETURNED  (ACH return, R01-R99)
 #                 │    ▲  └──► FAILED
 #                 ▼    │
 #                RETRYING
 PENDING, PROCESSING, COMPLETED, FAILED, RETRYING = "PENDING", "PROCESSING", "COMPLETED", "FAILED", "RETRYING"
-STATUSES = (PENDING, PROCESSING, COMPLETED, FAILED, RETRYING)
-TERMINAL = {COMPLETED, FAILED}
+RETURNED = "RETURNED"
+STATUSES = (PENDING, PROCESSING, COMPLETED, FAILED, RETRYING, RETURNED)
+TERMINAL = {COMPLETED, FAILED, RETURNED}
 
 TRANSITIONS: dict[str, set[str]] = {
     PENDING: {PROCESSING},
     PROCESSING: {COMPLETED, FAILED, RETRYING},
     RETRYING: {PROCESSING},
-    COMPLETED: set(),
+    COMPLETED: {RETURNED},
     FAILED: set(),
+    RETURNED: set(),
 }
 
 

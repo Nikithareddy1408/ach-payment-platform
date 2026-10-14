@@ -12,7 +12,7 @@ from psycopg_pool import ConnectionPool
 
 from .config import Settings
 from .db import is_unique_violation, transaction
-from .domain import PENDING, TERMINAL, ApiError, assert_transition, format_cents, new_id, to_cents
+from .domain import COMPLETED, PENDING, RETURNED, TERMINAL, ApiError, assert_transition, format_cents, new_id, not_found, to_cents
 from .mappers import to_api_event, to_api_payment  # noqa: F401  (re-exported)
 from .metrics import Metrics
 from .webhooks import enqueue_webhooks_in_tx
@@ -120,6 +120,21 @@ class PaymentService:
         conn.execute("INSERT INTO payment_jobs (payment_id, state) VALUES (%s, 'QUEUED')", (payment["id"],))
         return payment, False
 
+    # ── ACH returns ───────────────────────────────────────────────────────
+    def return_payment(self, customer_id: str, payment_id: str, return_code: str, actor: Actor) -> dict:
+        """Marks a COMPLETED payment as RETURNED by the receiving bank (return code R01-R99)."""
+        with transaction(self.pool) as conn:
+            current = conn.execute(
+                "SELECT status FROM payments WHERE id = %s AND customer_id = %s FOR UPDATE", (payment_id, customer_id)
+            ).fetchone()
+            if current is None:
+                raise not_found("PAYMENT", payment_id)
+            if current["status"] != COMPLETED:
+                raise ApiError(409, "PAYMENT_NOT_RETURNABLE",
+                               f"Only COMPLETED payments can be returned; this payment is {current['status']}.")
+            return self.transition(conn, payment_id, RETURNED, actor=actor, reason=f"ACH return {return_code}",
+                                   metadata={"returnCode": return_code})
+
     # ── The ONLY way a status ever changes ────────────────────────────────
     def transition(self, conn, payment_id: str, target: str, *, reason: str, actor: Actor, attempts: int | None = None,
                    bank_transfer_id: str | None = None, last_error=_UNSET, metadata: dict | None = None) -> dict:
@@ -139,7 +154,7 @@ class PaymentService:
                  bank_transfer_id = COALESCE(%(transfer)s, bank_transfer_id),
                  last_error_code = CASE WHEN %(set_error)s THEN %(code)s ELSE last_error_code END,
                  last_error_message = CASE WHEN %(set_error)s THEN %(message)s ELSE last_error_message END,
-                 completed_at = CASE WHEN %(terminal)s THEN now() ELSE completed_at END
+                 completed_at = CASE WHEN %(terminal)s THEN COALESCE(completed_at, now()) ELSE completed_at END
                WHERE id = %(id)s RETURNING *""",
             {"id": payment_id, "target": target, "attempts": attempts, "transfer": bank_transfer_id, "set_error": set_error,
              "code": error.get("code"), "message": error.get("message"), "terminal": target in TERMINAL},

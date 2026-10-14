@@ -9,7 +9,7 @@ A production-grade backend service that accepts ACH payment requests over an API
 | 1. High-level architecture / solution approach | [docs/02-architecture.md](docs/02-architecture.md) |
 | 2. Data model | [docs/03-data-model.md](docs/03-data-model.md) + [migrations/001_init.sql](migrations/001_init.sql) |
 | 3. API design | [docs/04-api.md](docs/04-api.md) + interactive docs at `/docs` + [docs/openapi.json](docs/openapi.json) |
-| 4. Code implementation | [app/](app/), with 65 automated evals in [tests/](tests/) |
+| 4. Code implementation | [app/](app/), with 87 automated evals in [tests/](tests/) |
 | Every requirement → design → code → test | [docs/01-requirements-traceability.md](docs/01-requirements-traceability.md) |
 | Why each technology and design choice | [docs/05-decisions.md](docs/05-decisions.md) |
 | Operating it in production | [docs/06-runbook.md](docs/06-runbook.md) |
@@ -47,7 +47,7 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
-**3. Run the evals** (65 tests against the real system, about 1 minute):
+**3. Run the evals** (87 tests against the real system, about 1 minute):
 
 ```powershell
 python -m pytest
@@ -100,8 +100,8 @@ The API authenticates the caller, validates the request, checks for duplicates, 
 ## Testing ("evals")
 
 ```powershell
-python -m pytest                     # 65 evals, real PostgreSQL, real HTTP, real background workers
-python scripts/mutation_check.py     # injects 10 real bugs; every one must make the evals fail
+python -m pytest                     # 87 evals, real PostgreSQL, real HTTP, real background workers
+python scripts/mutation_check.py     # injects 11 real bugs; every one must make the evals fail
 ```
 
 | Suite | Proves |
