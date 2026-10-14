@@ -26,7 +26,9 @@ workers, sandbox bank. See README.md and docs/02-architecture.md.
 - Allowed status changes are defined in app/domain.py AND in the payments_guard
   trigger in migrations/. Change both together, in a NEW migration file.
 - Never edit an existing migration file. Add a new one (002_..., 003_...).
-- Never delete or weaken existing tests to make the suite pass.
+- Never delete or weaken existing tests to make the suite pass. If a requirement
+  changes intended behavior and an existing test must change, say so BEFORE
+  changing it, explain why, and make sure the test checks at least as much as before.
 - Never log or return full account numbers.
 
 ## Definition of done
