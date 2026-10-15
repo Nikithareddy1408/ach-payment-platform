@@ -19,6 +19,7 @@ Base path `/v1`. JSON everywhere. Interactive documentation (try every endpoint 
 | 404 | `PAYMENT_NOT_FOUND`, ... | Unknown id, or belongs to another customer |
 | 409 | `DUPLICATE_REFERENCE`, `DELIVERY_NOT_RETRYABLE`, `PAYMENT_NOT_RETURNABLE` | Reference already used (`details.existingPaymentId`) |
 | 422 | `IDEMPOTENCY_KEY_REUSED` | Same key, different request body |
+| 422 | `DAILY_LIMIT_EXCEEDED` | The payment would take the customer's non-FAILED payments for today (UTC) over `DAILY_LIMIT_CENTS` (default $50,000.00); `details`: `limitCents`, `usedCents`, `requestedCents`. Nothing is stored. Idempotent retries of an existing payment still return 200 |
 | 429 | `RATE_LIMITED` | Too many requests for this key |
 
 ## `POST /v1/payments`: submit a payment

@@ -26,6 +26,7 @@ TEST_SETTINGS = dict(
     poll_interval_ms=5, worker_concurrency=2, breaker_failure_threshold=100_000, breaker_cooldown_ms=100,
     webhook_timeout_ms=500, webhook_max_attempts=4, webhook_retry_base_ms=5, webhook_retry_max_ms=20,
     webhook_concurrency=2, webhook_block_private_ips=False, rate_limit_per_minute=100_000,
+    daily_limit_cents=10**15,  # daily-limit tests set their own (test_07_daily_limit.py)
 )
 _counter = itertools.count(1)
 

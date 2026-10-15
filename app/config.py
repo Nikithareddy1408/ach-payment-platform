@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     # Limits
     max_amount_cents: int = Field(100_000_000, ge=1)  # $1,000,000.00
     rate_limit_per_minute: int = Field(600, ge=1)
+    daily_limit_cents: int = Field(5_000_000, ge=1)  # $50,000.00 per customer per UTC calendar day
 
     # Sandbox bank
     mock_bank_port: int = 4000
