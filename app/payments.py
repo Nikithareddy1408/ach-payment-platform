@@ -18,6 +18,7 @@ from .metrics import Metrics
 from .webhooks import enqueue_webhooks_in_tx
 
 IDEMPOTENCY_KEY = re.compile(r"^[\x21-\x7E]{8,255}$")  # 8-255 printable ASCII characters, no spaces
+DAILY_LIMIT_LOCK = 1401  # advisory lock namespace: (DAILY_LIMIT_LOCK, hashtext(customer_id))
 _UNSET = object()
 
 
@@ -90,6 +91,10 @@ class PaymentService:
         raise AssertionError("unreachable")
 
     def _create_in_tx(self, conn, p: NewPayment, cents: int, key: str, request_hash: str, actor: Actor) -> tuple[dict, bool]:
+        # Serialize this customer's submissions until commit, so two requests can't both read the
+        # day's total before either inserts. Taken first, so a concurrent retry of the same key
+        # still finds the original (200) instead of counting it against the limit (422).
+        conn.execute("SELECT pg_advisory_xact_lock(%s, hashtext(%s))", (DAILY_LIMIT_LOCK, p.customer_id))
         # ONE statement checks both the key and the reference, so both checks see the same
         # snapshot of committed data. Two separate SELECTs can straddle another request's
         # commit: the key check misses, the reference check hits, and a legitimate retry
@@ -108,6 +113,7 @@ class PaymentService:
         if same_reference:
             raise ApiError(409, "DUPLICATE_REFERENCE", f"A payment with reference '{p.reference}' already exists for this customer.",
                            {"existingPaymentId": same_reference["id"]})
+        self._check_daily_limit(conn, p.customer_id, cents)
 
         payment = conn.execute(
             """INSERT INTO payments (id, customer_id, source_account, destination_account, amount_cents, currency,
@@ -119,6 +125,25 @@ class PaymentService:
         # Same transaction: a payment can never exist without its job (or its first audit event).
         conn.execute("INSERT INTO payment_jobs (payment_id, state) VALUES (%s, 'QUEUED')", (payment["id"],))
         return payment, False
+
+    def _check_daily_limit(self, conn, customer_id: str, cents: int) -> None:
+        """Today's (UTC) non-FAILED payments plus this one must not exceed DAILY_LIMIT_CENTS.
+        Call while holding the customer's advisory lock."""
+        used = conn.execute(
+            """SELECT COALESCE(sum(amount_cents), 0)::bigint AS used FROM payments
+               WHERE customer_id = %s AND status <> 'FAILED'
+                 AND created_at >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+                 AND created_at < (date_trunc('day', now() AT TIME ZONE 'UTC') + interval '1 day') AT TIME ZONE 'UTC'""",
+            (customer_id,),
+        ).fetchone()["used"]
+        limit = self.settings.daily_limit_cents
+        if used + cents > limit:
+            raise ApiError(
+                422, "DAILY_LIMIT_EXCEEDED",
+                f"This payment of {format_cents(cents)} would exceed the daily limit of {format_cents(limit)} "
+                f"(UTC calendar day); {format_cents(used)} has already been submitted today.",
+                {"limitCents": limit, "usedCents": used, "requestedCents": cents},
+            )
 
     # ── ACH returns ───────────────────────────────────────────────────────
     def return_payment(self, customer_id: str, payment_id: str, return_code: str, actor: Actor) -> dict:

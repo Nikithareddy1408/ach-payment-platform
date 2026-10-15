@@ -53,6 +53,9 @@ MUTATIONS = [
     ("ACH return code not recorded in the audit trail",
      "app/payments.py", 'metadata={"returnCode": return_code})', "metadata={})",
      "tests/test_06_returns.py"),
+    ("Daily-limit advisory lock removed (two simultaneous payments can both slip under the limit)",
+     "app/payments.py", 'conn.execute("SELECT pg_advisory_xact_lock(%s, hashtext(%s))", (DAILY_LIMIT_LOCK, p.customer_id))', "pass",
+     "tests/test_07_daily_limit.py"),
 ]
 
 # Optional: run a subset, e.g.  python scripts/mutation_check.py 1 2 3
